@@ -2,7 +2,6 @@ package server;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
-import javax.swing.border.TitledBorder;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
 import java.awt.*;
@@ -15,17 +14,16 @@ import java.util.Date;
 import java.util.Vector;
 
 public class ServerApp extends JFrame {
-    // MỚI: Bảng thay vì TextArea
     private JTable logTable;
     private DefaultTableModel tableModel;
     
     private JList<ClientHandler> clientList;
     private Vector<ClientHandler> connectedClients;
     private JTextField pathField;
-    private JTextField portField; // Ô nhập Port cho Server
+    private JTextField portField; 
     private JButton btnMonitor;
     private JButton btnBrowse;
-    private JButton btnStartServer; // Nút bắt đầu server
+    private JButton btnStartServer; 
 
     public ServerApp() {
         super("Hệ Thống Giám Sát Tập Tin - Server Center");
@@ -65,10 +63,8 @@ public class ServerApp extends JFrame {
         JPanel centerPanel = new JPanel(new BorderLayout());
         centerPanel.setBorder(BorderFactory.createTitledBorder("Nhật ký giám sát tập tin"));
 
-        // 1. Cấu hình các cột
         String[] columns = {"Thời gian", "Client", "Hành động", "Mô tả chi tiết"};
         
-        // 2. Tạo Model không cho phép sửa dữ liệu trực tiếp trên bảng
         tableModel = new DefaultTableModel(columns, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
@@ -78,15 +74,14 @@ public class ServerApp extends JFrame {
         
         logTable = new JTable(tableModel);
         logTable.setFillsViewportHeight(true);
-        logTable.setRowHeight(30); // Tăng chiều cao dòng cho dễ đọc
+        logTable.setRowHeight(30);
         
         // Căn chỉnh độ rộng cột
         logTable.getColumnModel().getColumn(0).setPreferredWidth(90);  // Thời gian
         logTable.getColumnModel().getColumn(1).setPreferredWidth(100); // Client
         logTable.getColumnModel().getColumn(2).setPreferredWidth(100); // Hành động
-        logTable.getColumnModel().getColumn(3).setPreferredWidth(400); // Mô tả (Rộng nhất)
+        logTable.getColumnModel().getColumn(3).setPreferredWidth(400); // Mô tả 
 
-        // 3. --- TÍNH NĂNG MỚI: TÔ MÀU THEO HÀNH ĐỘNG ---
         logTable.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable table, Object value, 
@@ -94,32 +89,29 @@ public class ServerApp extends JFrame {
                                                          int row, int column) {
                 Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
                 
-                // Lấy giá trị cột "Hành động" (Cột index = 2)
                 String action = (String) table.getModel().getValueAt(row, 2);
                 
-                // Reset màu nền mặc định
                 if (!isSelected) {
                     c.setBackground(Color.WHITE);
                 }
 
-                // Tô màu chữ dựa trên hành động giám sát
                 if ("Tạo mới".equals(action)) {
-                    c.setForeground(new Color(0, 153, 51)); // Xanh lá đậm
+                    c.setForeground(new Color(0, 153, 51));
                     c.setFont(c.getFont().deriveFont(Font.BOLD));
                 } 
                 else if ("Đã Xóa".equals(action)) {
-                    c.setForeground(Color.RED); // Đỏ báo động
+                    c.setForeground(Color.RED); 
                     c.setFont(c.getFont().deriveFont(Font.BOLD));
                 } 
                 else if ("Chỉnh sửa".equals(action)) {
-                    c.setForeground(Color.BLUE); // Xanh dương
+                    c.setForeground(Color.BLUE);
                     c.setFont(c.getFont().deriveFont(Font.BOLD));
                 } 
                 else if ("Lỗi Client".equals(action) || "Lỗi Server".equals(action)) {
-                    c.setForeground(new Color(204, 0, 0)); // Đỏ sẫm
+                    c.setForeground(new Color(204, 0, 0)); 
                 }
                 else {
-                    c.setForeground(Color.BLACK); // Các tin nhắn hệ thống (Kết nối, v.v.)
+                    c.setForeground(Color.BLACK); 
                     c.setFont(c.getFont().deriveFont(Font.PLAIN));
                 }
                 
@@ -195,7 +187,6 @@ public class ServerApp extends JFrame {
         }).start();
     }
 
-    // --- MỚI: Hàm thêm dòng vào bảng ---
     public void addLog(String clientName, String action, String description) {
         SwingUtilities.invokeLater(() -> {
             String time = new SimpleDateFormat("HH:mm:ss").format(new Date());
@@ -237,9 +228,28 @@ public class ServerApp extends JFrame {
 
     private void startMonitoring() {
         ClientHandler selected = clientList.getSelectedValue();
-        if (selected == null || pathField.getText().trim().isEmpty()) return;
-        selected.sendMonitorCommand(pathField.getText().trim());
-        addLog(selected.getClientName(), "Lệnh Giám sát", "Bắt đầu theo dõi: " + pathField.getText());
+        
+        if (selected == null) {
+            JOptionPane.showMessageDialog(this, 
+                "Vui lòng chọn một Client trong danh sách bên trái!", 
+                "Chưa chọn Client", 
+                JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        String path = pathField.getText().trim();
+        if (path.isEmpty()) {
+            JOptionPane.showMessageDialog(this, 
+                "Vui lòng nhập đường dẫn hoặc yêu cầu Client chọn file trước khi bắt đầu!", 
+                "Thiếu đường dẫn giám sát", 
+                JOptionPane.ERROR_MESSAGE); 
+            pathField.requestFocus(); 
+            return;
+        }
+
+        selected.sendMonitorCommand(path);
+        
+        addLog(selected.getClientName(), "Lệnh Giám sát", "Bắt đầu theo dõi: " + path);
     }
 
     public void updatePathField(String path) {

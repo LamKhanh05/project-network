@@ -16,7 +16,7 @@ import java.net.Socket;
 public class ClientApp extends JFrame {
     private JTextArea logArea;
     private JTextField hostField;
-    private JTextField portField; // MỚI: Ô nhập Port
+    private JTextField portField; 
     private JButton btnConnect;
     private JLabel statusLabel;
     
@@ -57,8 +57,8 @@ public class ClientApp extends JFrame {
 
         topPanel.add(lblHost);
         topPanel.add(hostField);
-        topPanel.add(lblPort);     // Thêm label Port
-        topPanel.add(portField);   // Thêm field Port
+        topPanel.add(lblPort);  
+        topPanel.add(portField);   
         topPanel.add(btnConnect);
         add(topPanel, BorderLayout.NORTH);
 
@@ -112,7 +112,6 @@ public class ClientApp extends JFrame {
 
         new Thread(() -> {
             try {
-                // SỬA: Sử dụng port từ người dùng nhập
                 socket = new Socket(host, port);
                 out = new ObjectOutputStream(socket.getOutputStream());
                 in = new ObjectInputStream(socket.getInputStream());
@@ -192,10 +191,32 @@ public class ClientApp extends JFrame {
     }
 
     private void openDirectoryChooser() {
+        LookAndFeel oldLnF = UIManager.getLookAndFeel();
+        
+        try {
+            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+        } catch (Exception e) {}
+
         JFileChooser chooser = new JFileChooser();
+        SwingUtilities.updateComponentTreeUI(chooser);
+        
+        chooser.setDialogTitle("Chọn thư mục để Server giám sát");
         chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-        if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
-            sendMessage(new Message(ActionType.RETURN_PATH, chooser.getSelectedFile().getAbsolutePath(), "Đã chọn"));
+        
+        int result = chooser.showOpenDialog(this);
+
+        try {
+            UIManager.setLookAndFeel(oldLnF);
+        } catch (UnsupportedLookAndFeelException e) {}
+
+        if (result == JFileChooser.APPROVE_OPTION) {
+            String path = chooser.getSelectedFile().getAbsolutePath();
+            sendMessage(new Message(ActionType.RETURN_PATH, path, "Người dùng đã chọn"));
+            // Log local cho Client biết
+            SwingUtilities.invokeLater(() -> logArea.append(">>> Đã chọn đường dẫn: " + path + "\n"));
+        } else {
+            // Nếu người dùng bấm Cancel, cũng nên báo về Server biết là đã hủy
+            SwingUtilities.invokeLater(() -> logArea.append(">>> Đã hủy chọn thư mục.\n"));
         }
     }
 

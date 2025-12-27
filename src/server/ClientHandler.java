@@ -49,7 +49,6 @@ public class ClientHandler extends Thread {
                 try {
                     Message msg = (Message) in.readObject();
                     
-                    // --- XỬ LÝ LOG VÀO BẢNG ---
                     String action = "Thông báo";
                     String desc = msg.getContent();
 
@@ -86,8 +85,7 @@ public class ClientHandler extends Thread {
                             action = msg.getType().toString();
                     }
 
-                    // Gọi hàm addLog thay vì appendLog
-                    if (msg.getType() != ActionType.RESPONSE_LIST_DIR) { // Không log rác khi duyệt file
+                    if (msg.getType() != ActionType.RESPONSE_LIST_DIR) { 
                         serverUI.addLog(clientName, action, desc);
                     }
 

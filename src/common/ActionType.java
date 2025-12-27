@@ -11,7 +11,6 @@ public enum ActionType {
     REQUEST_BROWSE, // Server yêu cầu Client mở JFileChooser (Cách cũ)
     RETURN_PATH,    // Client trả về đường dẫn đã chọn
 
-    // --- MỚI: DUYỆT FILE TỪ XA ---
     REQUEST_LIST_DIR,  // Server yêu cầu lấy danh sách thư mục con
     RESPONSE_LIST_DIR  // Client trả về danh sách tên thư mục
 }
