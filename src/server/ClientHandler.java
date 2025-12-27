@@ -22,23 +22,19 @@ public class ClientHandler extends Thread {
     }
 
     public void sendMonitorCommand(String folderPath) {
-        try {
-            Message msg = new Message(ActionType.START_MONITOR, folderPath, "Lệnh từ Server");
-            out.writeObject(msg);
-            out.flush();
-        } catch (IOException e) {
-            serverUI.appendLog("Lỗi gửi lệnh tới " + clientName);
-        }
+        sendMessage(new Message(ActionType.START_MONITOR, folderPath, "Lệnh từ Server"));
     }
 
-    // Hàm MỚI: Gửi yêu cầu mở JFileChooser
-    public void sendBrowseRequest() {
+    public void sendListRequest(String path) {
+        sendMessage(new Message(ActionType.REQUEST_LIST_DIR, path, "Get Dir List"));
+    }
+
+    private void sendMessage(Message msg) {
         try {
-            Message msg = new Message(ActionType.REQUEST_BROWSE, "", "");
             out.writeObject(msg);
             out.flush();
         } catch (IOException e) {
-            serverUI.appendLog("Lỗi gửi yêu cầu chọn thư mục.");
+            serverUI.addLog(clientName, "Lỗi Gửi", "Không thể gửi tin nhắn tới Client");
         }
     }
 
@@ -47,36 +43,68 @@ public class ClientHandler extends Thread {
         try {
             out = new ObjectOutputStream(socket.getOutputStream());
             in = new ObjectInputStream(socket.getInputStream());
-
-            serverUI.appendLog(clientName + " đã kết nối!");
+            // Log kết nối đã được xử lý ở ServerApp khi accept socket
             
             while (true) {
                 try {
                     Message msg = (Message) in.readObject();
                     
-                    // Nếu là tin nhắn trả về đường dẫn thư mục
-                    if (msg.getType() == ActionType.RETURN_PATH) {
-                        serverUI.appendLog("[" + clientName + "] Đã chọn thư mục: " + msg.getContent());
-                        // Cập nhật lên UI của Server
-                        serverUI.updatePathField(msg.getContent());
-                    } else {
-                        // Các tin nhắn thông thường (File thay đổi, v.v.)
-                        serverUI.appendLog("[" + clientName + "] " + msg.toString());
+                    // --- XỬ LÝ LOG VÀO BẢNG ---
+                    String action = "Thông báo";
+                    String desc = msg.getContent();
+
+                    switch (msg.getType()) {
+                        case RETURN_PATH:
+                            action = "Chọn Đường Dẫn";
+                            serverUI.updatePathField(msg.getContent());
+                            break;
+                        case FILE_CREATED:
+                            action = "Tạo mới";
+                            desc = "File: " + msg.getContent() + " | " + msg.getDetails();
+                            break;
+                        case FILE_DELETED:
+                            action = "Đã Xóa";
+                            desc = "File: " + msg.getContent() + " | " + msg.getDetails();
+                            break;
+                        case FILE_MODIFIED:
+                            action = "Chỉnh sửa";
+                            desc = "File: " + msg.getContent() + " | " + msg.getDetails();
+                            break;
+                        case RESPONSE_LIST_DIR:
+                            action = "Duyệt File";
+                            desc = "Đã trả về danh sách thư mục";
+                            serverUI.showRemoteDirSelection(msg.getListData());
+                            break;
+                        case ERROR:
+                            action = "Lỗi Client";
+                            desc = msg.getContent() + " - " + msg.getDetails();
+                            break;
+                        case INFO:
+                            action = "Thông tin";
+                            break;
+                        default:
+                            action = msg.getType().toString();
                     }
+
+                    // Gọi hàm addLog thay vì appendLog
+                    if (msg.getType() != ActionType.RESPONSE_LIST_DIR) { // Không log rác khi duyệt file
+                        serverUI.addLog(clientName, action, desc);
+                    }
+
                 } catch (ClassNotFoundException e) {
                     e.printStackTrace();
                 }
             }
 
         } catch (IOException e) {
-            serverUI.appendLog(clientName + " đã ngắt kết nối.");
+            // Log ngắt kết nối xử lý ở finally/removeClient
         } finally {
             try { socket.close(); } catch (IOException e) {}
             serverUI.removeClient(this);
         }
     }
     
-    public String getClientName() {
-        return clientName;
-    }
+    public String getClientName() { return clientName; }
+    @Override
+    public String toString() { return clientName; }
 }

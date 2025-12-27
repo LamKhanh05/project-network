@@ -7,6 +7,7 @@ import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.TitledBorder;
 import java.awt.*;
+import java.io.File;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -15,6 +16,7 @@ import java.net.Socket;
 public class ClientApp extends JFrame {
     private JTextArea logArea;
     private JTextField hostField;
+    private JTextField portField; // MỚI: Ô nhập Port
     private JButton btnConnect;
     private JLabel statusLabel;
     
@@ -29,106 +31,108 @@ public class ClientApp extends JFrame {
     }
 
     private void initUI() {
-        // Cài đặt Look and Feel hiện đại (Nimbus)
         try {
-            for (UIManager.LookAndFeelInfo info : UIManager.getInstalledLookAndFeels()) {
-                if ("Nimbus".equals(info.getName())) {
-                    UIManager.setLookAndFeel(info.getClassName());
-                    break;
-                }
-            }
-        } catch (Exception e) {
-           // Fallback
-        }
+            UIManager.setLookAndFeel("javax.swing.plaf.nimbus.NimbusLookAndFeel");
+        } catch (Exception e) {}
 
         setLayout(new BorderLayout(15, 15));
         ((JPanel)getContentPane()).setBorder(new EmptyBorder(15, 15, 15, 15));
 
-        // --- PANEL TRÊN: CẤU HÌNH KẾT NỐI ---
+        // --- PANEL TRÊN: CẤU HÌNH KẾT NỐI (SỬA) ---
         JPanel topPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 10));
         TitledBorder topBorder = BorderFactory.createTitledBorder("Cấu hình kết nối Server");
         topBorder.setTitleFont(new Font("Arial", Font.BOLD, 12));
         topPanel.setBorder(topBorder);
 
-        JLabel lblHost = new JLabel("Địa chỉ IP Server:");
-        lblHost.setFont(new Font("Arial", Font.PLAIN, 13));
-        hostField = new JTextField("localhost", 15);
-        hostField.setFont(new Font("Arial", Font.PLAIN, 13));
+        JLabel lblHost = new JLabel("IP Server:");
+        hostField = new JTextField("localhost", 10);
+        
+        JLabel lblPort = new JLabel("Port:");
+        portField = new JTextField("9999", 5); // Default port
 
         btnConnect = new JButton("🔗 Kết nối");
-        btnConnect.setFont(new Font("Arial", Font.BOLD, 13));
-        btnConnect.setFocusPainted(false);
         btnConnect.setBackground(new Color(70, 130, 180));
         btnConnect.setForeground(Color.WHITE);
+        btnConnect.setFocusPainted(false);
 
         topPanel.add(lblHost);
         topPanel.add(hostField);
+        topPanel.add(lblPort);     // Thêm label Port
+        topPanel.add(portField);   // Thêm field Port
         topPanel.add(btnConnect);
         add(topPanel, BorderLayout.NORTH);
 
-
         // --- PANEL GIỮA: LOG ---
         JPanel centerPanel = new JPanel(new BorderLayout());
-        TitledBorder centerBorder = BorderFactory.createTitledBorder("Trạng thái hoạt động của Client");
-        centerBorder.setTitleFont(new Font("Arial", Font.BOLD, 12));
-        centerPanel.setBorder(centerBorder);
-
+        centerPanel.setBorder(BorderFactory.createTitledBorder("Trạng thái hoạt động"));
         logArea = new JTextArea();
         logArea.setEditable(false);
         logArea.setFont(new Font("Monospaced", Font.PLAIN, 13));
-        logArea.setBackground(new Color(240, 240, 245));
-        logArea.setText(">>> Vui lòng nhập IP Server và bấm Kết nối...\n");
-        JScrollPane scrollPane = new JScrollPane(logArea);
-        scrollPane.setBorder(null);
-        centerPanel.add(scrollPane, BorderLayout.CENTER);
-
+        logArea.setText(">>> Nhập IP & Port rồi kết nối...\n");
+        centerPanel.add(new JScrollPane(logArea), BorderLayout.CENTER);
         add(centerPanel, BorderLayout.CENTER);
 
         // --- PANEL DƯỚI: THANH TRẠNG THÁI ---
         JPanel statusPanel = new JPanel(new BorderLayout());
-        statusPanel.setBorder(new EmptyBorder(5, 0, 0, 0));
         statusLabel = new JLabel(" Trạng thái: Chưa kết nối");
-        statusLabel.setFont(new Font("Arial", Font.ITALIC, 12));
-        statusLabel.setForeground(Color.GRAY);
+        statusLabel.setForeground(Color.BLUE);
         statusPanel.add(statusLabel, BorderLayout.WEST);
         add(statusPanel, BorderLayout.SOUTH);
 
-
         btnConnect.addActionListener(e -> connectToServer());
 
-        setSize(600, 450);
+        setSize(650, 450);
         setLocationRelativeTo(null);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setVisible(true);
     }
 
     private void connectToServer() {
-        String host = hostField.getText();
+        String host = hostField.getText().trim();
+        String portStr = portField.getText().trim();
+
+        // Validate cơ bản
+        if (host.isEmpty() || portStr.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Vui lòng nhập đầy đủ IP và Port!");
+            return;
+        }
+
+        int port;
+        try {
+            port = Integer.parseInt(portStr);
+        } catch (NumberFormatException e) {
+            JOptionPane.showMessageDialog(this, "Port phải là số nguyên!");
+            return;
+        }
+
         btnConnect.setEnabled(false);
-        btnConnect.setText("Đang kết nối...");
-        updateStatus("Đang thử kết nối tới " + host + "...");
+        hostField.setEditable(false);
+        portField.setEditable(false);
+        updateStatus("Đang kết nối tới " + host + ":" + port + "...");
 
         new Thread(() -> {
             try {
-                socket = new Socket(host, 9999);
+                // SỬA: Sử dụng port từ người dùng nhập
+                socket = new Socket(host, port);
                 out = new ObjectOutputStream(socket.getOutputStream());
                 in = new ObjectInputStream(socket.getInputStream());
                 
                 SwingUtilities.invokeLater(() -> {
                     logArea.append(">>> ✅ Đã kết nối thành công tới Server!\n");
                     btnConnect.setText("Đã kết nối");
-                    btnConnect.setBackground(new Color(40, 167, 69)); // Màu xanh lá
-                    hostField.setEditable(false);
-                    updateStatus("Đã kết nối tới " + host + ". Đang chờ lệnh...");
+                    btnConnect.setBackground(new Color(40, 167, 69));
+                    updateStatus("Đã kết nối. Đang chờ lệnh...");
                 });
 
                 listenForCommands();
 
             } catch (IOException ex) {
                 SwingUtilities.invokeLater(() -> {
-                    logArea.append(">>> ❌ Lỗi kết nối: " + ex.getMessage() + "\nTry again.\n");
+                    logArea.append(">>> ❌ Lỗi kết nối: " + ex.getMessage() + "\n");
                     btnConnect.setEnabled(true);
                     btnConnect.setText("🔗 Kết nối");
+                    hostField.setEditable(true);
+                    portField.setEditable(true);
                     updateStatus("Lỗi kết nối.");
                 });
             }
@@ -142,67 +146,60 @@ public class ClientApp extends JFrame {
                 
                 if (msg.getType() == ActionType.START_MONITOR) {
                     SwingUtilities.invokeLater(() -> {
-                        logArea.append("\n[SERVER COMMAND] Yêu cầu bắt đầu giám sát thư mục:\n -> " + msg.getContent() + "\n");
+                        logArea.append("\n[SERVER] Bắt đầu giám sát: " + msg.getContent() + "\n");
                         updateStatus("Đang giám sát: " + msg.getContent());
                     });
                     startWatcher(msg.getContent());
                 } 
                 else if (msg.getType() == ActionType.REQUEST_BROWSE) {
-                    SwingUtilities.invokeLater(() -> {
-                        logArea.append("\n[SERVER COMMAND] Yêu cầu chọn thư mục...\n");
-                        openDirectoryChooser();
-                    });
+                    SwingUtilities.invokeLater(this::openDirectoryChooser);
+                }
+                else if (msg.getType() == ActionType.REQUEST_LIST_DIR) {
+                    handleListDirRequest(msg.getContent());
                 }
             }
         } catch (IOException | ClassNotFoundException e) {
             SwingUtilities.invokeLater(() -> {
-                logArea.append("\n>>> ⚠️ Đã mất kết nối với Server.\n");
+                logArea.append("\n>>> ⚠️ Mất kết nối Server.\n");
                 btnConnect.setEnabled(true);
-                hostField.setEditable(true);
                 btnConnect.setText("🔗 Kết nối lại");
-                btnConnect.setBackground(new Color(70, 130, 180));
-                updateStatus("Mất kết nối.");
+                hostField.setEditable(true);
+                portField.setEditable(true);
             });
         }
     }
 
-    private void openDirectoryChooser() {
-        // Sử dụng JFileChooser với giao diện hệ thống để trông tự nhiên nhất
-        try {
-            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-        } catch (Exception ignored) {}
-        
-        JFileChooser chooser = new JFileChooser();
-        chooser.setDialogTitle("Chọn thư mục để Server giám sát");
-        chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-        
-        int result = chooser.showOpenDialog(this);
-
-        // Trả lại giao diện Nimbus cho ứng dụng chính
-        try {
-            for (UIManager.LookAndFeelInfo info : UIManager.getInstalledLookAndFeels()) {
-                if ("Nimbus".equals(info.getName())) {
-                    UIManager.setLookAndFeel(info.getClassName());
-                    break;
-                }
-            }
-            SwingUtilities.updateComponentTreeUI(this);
-        } catch (Exception ignored) {}
-
-
-        if (result == JFileChooser.APPROVE_OPTION) {
-            String path = chooser.getSelectedFile().getAbsolutePath();
-            sendMessage(new Message(ActionType.RETURN_PATH, path, "Người dùng đã chọn thư mục"));
-            logArea.append(">>> Đã chọn: " + path + ". Đang gửi về Server...\n");
+    private void handleListDirRequest(String path) {
+        File[] files;
+        if (path == null || path.trim().isEmpty()) {
+            files = File.listRoots();
         } else {
-            sendMessage(new Message(ActionType.INFO, "N/A", "Người dùng hủy chọn thư mục"));
-            logArea.append(">>> Người dùng đã hủy chọn thư mục.\n");
+            File dir = new File(path);
+            files = (dir.exists() && dir.isDirectory()) ? dir.listFiles(File::isDirectory) : null;
+        }
+
+        String[] names = null;
+        if (files != null) {
+            names = new String[files.length];
+            for (int i = 0; i < files.length; i++) {
+                names[i] = (path == null || path.trim().isEmpty()) ? files[i].getAbsolutePath() : files[i].getName();
+            }
+        }
+        
+        sendMessage(new Message(ActionType.RESPONSE_LIST_DIR, names, "List Dir Result"));
+        String finalPath = path;
+        SwingUtilities.invokeLater(() -> logArea.append("[SERVER] Đang duyệt: " + (finalPath.isEmpty() ? "Danh sách ổ đĩa" : finalPath) + "\n"));
+    }
+
+    private void openDirectoryChooser() {
+        JFileChooser chooser = new JFileChooser();
+        chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+        if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+            sendMessage(new Message(ActionType.RETURN_PATH, chooser.getSelectedFile().getAbsolutePath(), "Đã chọn"));
         }
     }
 
-    private void updateStatus(String text) {
-        statusLabel.setText(" Trạng thái: " + text);
-    }
+    private void updateStatus(String text) { statusLabel.setText(" Trạng thái: " + text); }
 
     private void sendMessage(Message msg) {
         try {
@@ -210,20 +207,14 @@ public class ClientApp extends JFrame {
                 out.writeObject(msg);
                 out.flush();
             }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        } catch (IOException e) { e.printStackTrace(); }
     }
 
     private void startWatcher(String path) {
-        if (currentWatcher != null) {
-            currentWatcher.stopWatcher();
-        }
+        if (currentWatcher != null) currentWatcher.stopWatcher();
         currentWatcher = new DirectoryWatcher(path, out);
         new Thread(currentWatcher).start();
     }
 
-    public static void main(String[] args) {
-        new ClientApp();
-    }
+    public static void main(String[] args) { new ClientApp(); }
 }
